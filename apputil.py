@@ -60,3 +60,30 @@ def visualize_demographic(table: pd.DataFrame, question_text: str | None = None)
     fig.update_yaxes(tickformat=".0%")
     return fig
 
+def visualize_families(df=None):
+    if df is None:
+        df = pd.read_csv(
+            "https://raw.githubusercontent.com/leontoddjohnson/datasets/main/data/titanic.csv"
+        )
+    
+    # family size
+    df["family_size"] = df["SibSp"] + df["Parch"] + 1
+    
+    # groupby family_size and class
+    grouped = df.groupby(["family_size", "Pclass"]).agg(
+        n_passengers=("PassengerId", "count"),
+        avg_fare=("Fare", "mean"),
+        min_fare=("Fare", "min"),
+        max_fare=("Fare", "max"),
+    ).reset_index()
+    
+    # plot
+    fig = px.bar(
+        grouped,
+        x="family_size",
+        y="avg_fare",
+        color="Pclass",
+        barmode="group",
+        title="Average Fare by Family Size and Passenger Class"
+    )
+    return fig
