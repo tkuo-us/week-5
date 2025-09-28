@@ -2,3 +2,61 @@ import plotly.express as px
 import pandas as pd
 
 # update/add code below ...
+
+def survival_demographics(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    return Pclass, Sex, age_group:
+    - n_passengers: total number of passengers
+    - n_survivors: number of survivors
+    - survival_rate: survival rate
+    """
+    # create age group（Child/Teen/Adult/Senior）
+    bins   = [0, 12, 19, 59, 200]
+    labels = ["Child", "Teen", "Adult", "Senior"]
+    age_group = pd.cut(
+        df["Age"],
+        bins=bins,
+        labels=labels,
+        include_lowest=True,
+        right=True,
+    )
+    tmp = df.assign(age_group=age_group)
+
+    # group by class, sez, age_group
+    out = (
+        tmp.groupby(["Pclass", "Sex", "age_group"])
+           .agg(
+               n_passengers=("PassengerId", "count"),
+               n_survivors=("Survived", "sum"),
+           )
+           .reset_index()
+    )
+    out["survival_rate"] = out["n_survivors"] / out["n_passengers"]
+
+    # sort
+    order_map = {"Child": 0, "Teen": 1, "Adult": 2, "Senior": 3}
+    out["age_order"] = out["age_group"].map(order_map)
+    out = out.sort_values(["Pclass", "Sex", "age_order"]).drop(columns="age_order")
+
+    return out
+
+
+
+def visualize_demographic(table: pd.DataFrame, question_text: str | None = None):
+    """
+    Visualize survival rate by age group, sex, class
+    """
+    fig = px.bar(
+        table,
+        x="age_group",
+        y="survival_rate",
+        color="Sex",
+        facet_col="Pclass",
+        barmode="group",
+        category_orders={"age_group": ["Child", "Teen", "Adult", "Senior"]},
+        labels={"age_group":"Age group", "survival_rate":"Survival rate", "Pclass":"Class"},
+        title=question_text or "Survival Rate by Age Group, Sex, and Class"
+    )
+    fig.update_yaxes(tickformat=".0%")
+    return fig
+
