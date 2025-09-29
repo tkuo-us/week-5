@@ -51,7 +51,10 @@ st.plotly_chart(fig2, use_container_width=True)
 # -------------------------------
 # Titanic Visualization Bonus
 # -------------------------------
-st.header("Titanic Visualization Bonus")
+st.header("Titanic Visualization Bonus — Age Division")
 
-fig3 = visualize_family_size()
+df_bonus = determine_age_division(df)
+st.dataframe(df_bonus[["Pclass", "Age", "older_passenger"]].head(20), use_container_width=True)
+
+fig3 = visualize_age_division(df_bonus)
 st.plotly_chart(fig3, use_container_width=True)

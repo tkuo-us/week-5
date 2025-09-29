@@ -136,3 +136,40 @@ def visualize_family_size(df: pd.DataFrame | None = None):
     g = tmp["family_size"].value_counts().sort_index().reset_index()
     g.columns = ["family_size", "n_passengers"]
     return px.bar(g, x="family_size", y="n_passengers", title="Passenger Count by Family Size")
+
+def determine_age_division(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    add older_passenger (True/False) of each one:
+    - True = age > Pclass median
+    - False = age <= Pclass median
+    """
+    tmp = df.copy()
+
+    medians = tmp.groupby("Pclass")["Age"].median()
+
+    def is_older(row):
+        if pd.isna(row["Age"]):
+            return None
+        return row["Age"] > medians[row["Pclass"]]
+
+    tmp["older_passenger"] = tmp.apply(is_older, axis=1)
+    return tmp
+
+def visualize_age_division(df: pd.DataFrame):
+    """
+    show older_passenger rate(orderby class)
+    """
+    out = (
+        df.groupby(["Pclass", "older_passenger"])
+        .size()
+        .reset_index(name="count")
+    )
+    fig = px.bar(
+        out,
+        x="Pclass",
+        y="count",
+        color="older_passenger",
+        barmode="group",
+        title="Older Passenger Distribution by Class",
+    )
+    return fig
