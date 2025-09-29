@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-from apputil import survival_demographics, visualize_demographic, family_groups, last_names, visualize_families, visualize_family_size
+from apputil import survival_demographics, visualize_demographic, family_groups, last_names, visualize_families, visualize_family_size, determine_age_division, visualize_age_division
 
 
 # Load Titanic dataset

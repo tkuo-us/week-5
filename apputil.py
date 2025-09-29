@@ -94,15 +94,14 @@ def last_names(df: pd.DataFrame) -> pd.Series:
     last = df["Name"].str.split(",", n=1).str[0].str.strip()
     return last.value_counts()
 
-def visualize_families(table: pd.DataFrame, question_text: str | None = None):  
-    # plot
-    fig = px.bar(
+def visualize_families(table: pd.DataFrame, question_text: str | None = None):
+    fig = px.line(
         table,
         x="family_size",
         y="avg_fare",
         color="Pclass",
-        barmode="group",
-        title="Average Fare by Family Size and Passenger Class"
+        markers=True,
+        title=question_text or "Average Fare by Family Size and Class",
     )
     return fig
 
@@ -123,37 +122,22 @@ def visualize_family_size(df: pd.DataFrame | None = None):
 
 def determine_age_division(df: pd.DataFrame) -> pd.DataFrame:
     """
-    add older_passenger (True/False) of each one:
-    - True = age > Pclass median
-    - False = age <= Pclass median
+    create a new column 'older_passenger' to mark passengers older than the median age.
     """
-    tmp = df.copy()
-
-    medians = tmp.groupby("Pclass")["Age"].median()
-
-    def is_older(row):
-        if pd.isna(row["Age"]):
-            return None
-        return row["Age"] > medians[row["Pclass"]]
-
-    tmp["older_passenger"] = tmp.apply(is_older, axis=1)
-    return tmp
+    median_age = df["Age"].median()
+    df["older_passenger"] = df["Age"] > median_age
+    return df
 
 def visualize_age_division(df: pd.DataFrame):
     """
-    show older_passenger rate(orderby class)
+    Visualize survival rates by passenger class and older_passenger status.
     """
-    out = (
-        df.groupby(["Pclass", "older_passenger"])
-        .size()
-        .reset_index(name="count")
-    )
     fig = px.bar(
-        out,
+        df,
         x="Pclass",
-        y="count",
+        y="Survived",
         color="older_passenger",
         barmode="group",
-        title="Older Passenger Distribution by Class",
+        title="Survival by Passenger Class and Age Division",
     )
     return fig
