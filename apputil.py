@@ -60,6 +60,40 @@ def visualize_demographic(table: pd.DataFrame, question_text: str | None = None)
     fig.update_yaxes(tickformat=".0%")
     return fig
 
+
+def family_groups(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    create family_size = SibSp + Parch + 1,
+    family_size * Pclass:
+      - n_passengers
+      - avg_fare
+      - min_fare / max_fare
+    sort with class、family_size
+    """
+    tmp = df.copy()
+    tmp["family_size"] = tmp["SibSp"] + tmp["Parch"] + 1
+
+    out = (
+        tmp.groupby(["family_size", "Pclass"])
+        .agg(
+            n_passengers=("PassengerId", "count"),
+            avg_fare=("Fare", "mean"),
+            min_fare=("Fare", "min"),
+            max_fare=("Fare", "max"),
+        )
+        .reset_index()
+        .sort_values(["Pclass", "family_size"])
+    )
+    return out
+
+def last_names(df: pd.DataFrame) -> pd.Series:
+    """
+    get family name then return value_counts Series
+    index=last_name, value=count
+    """
+    last = df["Name"].str.split(",", n=1).str[0].str.strip()
+    return last.value_counts()
+
 def visualize_families(df=None):
     if df is None:
         df = pd.read_csv(
