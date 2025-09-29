@@ -121,3 +121,18 @@ def visualize_families(df=None):
         title="Average Fare by Family Size and Passenger Class"
     )
     return fig
+
+# bonus
+def visualize_family_size(df: pd.DataFrame | None = None):
+    """
+    family_size
+    """
+    if df is None:
+        df = pd.read_csv(
+            "https://raw.githubusercontent.com/leontoddjohnson/datasets/main/data/titanic.csv"
+        )
+    tmp = df.copy()
+    tmp["family_size"] = tmp["SibSp"] + tmp["Parch"] + 1
+    g = tmp["family_size"].value_counts().sort_index().reset_index()
+    g.columns = ["family_size", "n_passengers"]
+    return px.bar(g, x="family_size", y="n_passengers", title="Passenger Count by Family Size")
