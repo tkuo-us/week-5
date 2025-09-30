@@ -64,10 +64,11 @@ def survival_demographics(df=None) -> pd.DataFrame:
     out["age_group"] = out["age_group"].astype(
         pd.CategoricalDtype(categories=labels, ordered=True)
     )
-    out = out.rename(columns={pclass_col: "Pclass", sex_col: "Sex"})
+    # rename columns for autograder
+    out = out.rename(columns={pclass_col: "pclass", sex_col: "sex"})
+    out = out.sort_values(["pclass", "sex", "age_group"])
 
-    return out[["Pclass", "Sex", "age_group",
-                "n_passengers", "n_survivors", "survival_rate"]]
+    return out[["pclass", "sex", "age_group", "n_passengers", "n_survivors", "survival_rate"]]
 
 
 
@@ -76,19 +77,22 @@ def visualize_demographic(table: pd.DataFrame, question_text: str | None = None)
     Visualize survival rate by age group, sex, pclass
     Expects the OUTPUT schema from survival_demographics (lower-case)
     """
+    facet_col = "pclass" if "pclass" in table.columns else "Pclass"
+    color_col = "sex"    if "sex"    in table.columns else "Sex"
 
     fig = px.bar(
         table,
         x="age_group",
         y="survival_rate",
-        color="Sex",
-        facet_col="Pclass",
+        color=color_col,
+        facet_col=facet_col,
         barmode="group",
         category_orders={"age_group": ["Child", "Teen", "Adult", "Senior"]},
         labels={
             "age_group": "Age group",
             "survival_rate": "Survival rate",
-            "Pclass": "Class",
+            facet_col: "Class",
+            color_col: "Sex",
         },
         title=question_text or "Survival Rate by Age Group, Sex, and Class",
     )
