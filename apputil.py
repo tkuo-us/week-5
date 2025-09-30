@@ -4,13 +4,26 @@ import pandas as pd
 # update/add code below ...
 _TITANIC_URL = "https://raw.githubusercontent.com/leontoddjohnson/datasets/main/data/titanic.csv"
 
+# ---------- for autograder ----------
 def _ensure_df(df=None) -> pd.DataFrame:
     """If they don't have df, then loading original Titanic dataset。"""
     if df is None:
         return pd.read_csv(_TITANIC_URL)
     return df
 
+def _find_col(df: pd.DataFrame, *cands: str) -> str:
+    """Return the first existing column name (case-insensitive)."""
+    for c in cands:
+        if c in df.columns:
+            return c
+    low = {c.lower(): c for c in df.columns}
+    for c in cands:
+        if c.lower() in low:
+            return low[c.lower()]
+    raise KeyError(f"None of {cands} found in columns: {list(df.columns)}")
 
+
+# ---------- 1) Exercise 1 ----------
 def survival_demographics(df=None) -> pd.DataFrame:
     """
     return Pclass, Sex, age_group:
@@ -20,11 +33,17 @@ def survival_demographics(df=None) -> pd.DataFrame:
     """
     df = _ensure_df(df)
 
+    age_col      = _find_col(df, "Age", "age")
+    pclass_col   = _find_col(df, "Pclass", "pclass")
+    sex_col      = _find_col(df, "Sex", "sex")
+    survived_col = _find_col(df, "Survived", "survived")
+    pid_col      = _find_col(df, "PassengerId", "passengerid")
+
     # create age group（Child/Teen/Adult/Senior）
     bins   = [0, 12, 19, 59, 200]
     labels = ["Child", "Teen", "Adult", "Senior"]
     age_group = pd.cut(
-        df["Age"],
+        df[age_col],
         bins=bins,
         labels=labels,
         include_lowest=True,
@@ -34,27 +53,28 @@ def survival_demographics(df=None) -> pd.DataFrame:
 
     # group by class, sez, age_group
     out = (
-        tmp.groupby(["Pclass", "Sex", "age_group"])
+        tmp.groupby([pclass_col, sex_col, "age_group"], observed=False)
            .agg(
-               n_passengers=("PassengerId", "count"),
-               n_survivors=("Survived", "sum"),
+               n_passengers=(pid_col, "count"),
+               n_survivors=(survived_col, "sum"),
            )
            .reset_index()
     )
     out["survival_rate"] = out["n_survivors"] / out["n_passengers"]
+    out["age_group"] = out["age_group"].astype(
+        pd.CategoricalDtype(categories=labels, ordered=True)
+    )
+    out = out.rename(columns={pclass_col: "Pclass", sex_col: "Sex"})
 
-    # sort
-    order_map = {"Child": 0, "Teen": 1, "Adult": 2, "Senior": 3}
-    out["age_order"] = out["age_group"].map(order_map)
-    out = out.sort_values(["Pclass", "Sex", "age_order"]).drop(columns="age_order")
-
-    return out
+    return out[["Pclass", "Sex", "age_group",
+                "n_passengers", "n_survivors", "survival_rate"]]
 
 
 
 def visualize_demographic(table: pd.DataFrame, question_text: str | None = None):
     """
-    Visualize survival rate by age group, sex, class
+    Visualize survival rate by age group, sex, pclass
+    Expects the OUTPUT schema from survival_demographics (lower-case)
     """
 
     fig = px.bar(
@@ -65,37 +85,47 @@ def visualize_demographic(table: pd.DataFrame, question_text: str | None = None)
         facet_col="Pclass",
         barmode="group",
         category_orders={"age_group": ["Child", "Teen", "Adult", "Senior"]},
-        labels={"age_group":"Age group", "survival_rate":"Survival rate", "Pclass":"Class"},
-        title=question_text or "Survival Rate by Age Group, Sex, and Class"
+        labels={
+            "age_group": "Age group",
+            "survival_rate": "Survival rate",
+            "Pclass": "Class",
+        },
+        title=question_text or "Survival Rate by Age Group, Sex, and Class",
     )
     fig.update_yaxes(tickformat=".0%")
     return fig
 
 
-def family_groups(df: pd.DataFrame) -> pd.DataFrame:
+# ---------- 2) Exercise 2 ----------
+def family_groups(df: pd.DataFrame | None = None) -> pd.DataFrame:
     """
-    create family_size = SibSp + Parch + 1,
-    family_size * Pclass:
-      - n_passengers
-      - avg_fare
-      - min_fare / max_fare
-    sort with class、family_size
+    create family_size = SibSp + Parch + 1, group by (family_size, pclass)
+    Return (lower-case pclass in OUTPUT):
+      family_size, pclass, n_passengers, avg_fare, min_fare, max_fare
     """
-    df = df.copy()  # 這裡直接用 df，不需要 tmp
+    #df = df.copy() # avoid modifying original df
+    df = _ensure_df(df).copy()
 
-    df["family_size"] = df["SibSp"] + df["Parch"] + 1
+    sibsp_col  = _find_col(df, "SibSp", "sibsp")
+    parch_col  = _find_col(df, "Parch", "parch")
+    pclass_col = _find_col(df, "Pclass", "pclass")
+    fare_col   = _find_col(df, "Fare", "fare")
+    pid_col    = _find_col(df, "PassengerId", "passengerid")
+
+    df["family_size"] = df[sibsp_col] + df[parch_col] + 1
 
     out = (
-        df.groupby(["family_size", "Pclass"])
+        df.groupby(["family_size", pclass_col], observed=False)
         .agg(
-            n_passengers=("PassengerId", "count"),
-            avg_fare=("Fare", "mean"),
-            min_fare=("Fare", "min"),
-            max_fare=("Fare", "max"),
+            n_passengers=(pid_col, "count"),
+            avg_fare=(fare_col, "mean"),
+            min_fare=(fare_col, "min"),
+            max_fare=(fare_col, "max"),
         )
         .reset_index()
-        .sort_values(["Pclass", "family_size"])
     )
+    out = out.rename(columns={pclass_col: "pclass"})
+    out = out.sort_values(["pclass", "family_size"])
     return out
 
 
@@ -105,8 +135,9 @@ def last_names(df=None) -> pd.Series:
     index=last_name, value=count
     """
     df = _ensure_df(df)
-    
-    last = df["Name"].str.split(",", n=1).str[0].str.strip()
+
+    name_col = _find_col(df, "Name", "name")
+    last = df[name_col].str.split(",", n=1).str[0].str.strip()
     return last.value_counts()
 
 def visualize_families(table: pd.DataFrame, question_text: str | None = None):
@@ -114,7 +145,7 @@ def visualize_families(table: pd.DataFrame, question_text: str | None = None):
         table,
         x="family_size",
         y="avg_fare",
-        color="Pclass",
+        color="pclass",
         markers=True,
         title=question_text or "Average Fare by Family Size and Class",
     )
@@ -125,34 +156,39 @@ def visualize_family_size(df: pd.DataFrame | None = None):
     """
     family_size
     """
-    if df is None:
-        df = pd.read_csv(
-            "https://raw.githubusercontent.com/leontoddjohnson/datasets/main/data/titanic.csv"
-        )
-    tmp = df.copy()
-    tmp["family_size"] = tmp["SibSp"] + tmp["Parch"] + 1
-    g = tmp["family_size"].value_counts().sort_index().reset_index()
+    df = _ensure_df(df).copy()
+
+    sibsp_col = _find_col(df, "SibSp", "sibsp")
+    parch_col = _find_col(df, "Parch", "parch")
+    df["family_size"] = df[sibsp_col] + df[parch_col] + 1
+    g = df["family_size"].value_counts().sort_index().reset_index()
     g.columns = ["family_size", "n_passengers"]
     return px.bar(g, x="family_size", y="n_passengers", title="Passenger Count by Family Size")
 
+
 def determine_age_division(df=None) -> pd.DataFrame:
     """
-    create a new column 'older_passenger' to mark passengers older than the median age.
+    create a new boolean 'older_passenger' to mark passengers older than the median age.
     """
     df = _ensure_df(df).copy()
 
-    median_age = df["Age"].median()
-    df["older_passenger"] = df["Age"] > median_age
+    age_col = _find_col(df, "Age", "age")
+    median_age = df[age_col].median()
+    df["older_passenger"] = df[age_col] > median_age
     return df
 
 def visualize_age_division(df: pd.DataFrame):
     """
-    Visualize survival rates by passenger class and older_passenger status.
+    Compatible with either 'Pclass'/'pclass' and 'Survived'/'survived'
     """
+
+    x_col = "Pclass" if "Pclass" in df.columns else _find_col(df, "pclass", "Pclass")
+    y_col = "Survived" if "Survived" in df.columns else _find_col(df, "survived", "Survived")
+
     fig = px.bar(
         df,
-        x="Pclass",
-        y="Survived",
+        x=x_col,
+        y=y_col,
         color="older_passenger",
         barmode="group",
         title="Survival by Passenger Class and Age Division",
