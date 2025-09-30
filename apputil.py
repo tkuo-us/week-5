@@ -2,14 +2,16 @@ import plotly.express as px
 import pandas as pd
 
 # update/add code below ...
-def _ensure_df(df: pd.DataFrame | None) -> pd.DataFrame:
+_TITANIC_URL = "https://raw.githubusercontent.com/leontoddjohnson/datasets/main/data/titanic.csv"
+
+def _ensure_df(df=None) -> pd.DataFrame:
     """If they don't have df, then loading original Titanic dataset。"""
     if df is None:
         return pd.read_csv(_TITANIC_URL)
     return df
 
 
-def survival_demographics(df: pd.DataFrame) -> pd.DataFrame:
+def survival_demographics(df=None) -> pd.DataFrame:
     """
     return Pclass, Sex, age_group:
     - n_passengers: total number of passengers
@@ -79,9 +81,9 @@ def family_groups(df: pd.DataFrame) -> pd.DataFrame:
       - min_fare / max_fare
     sort with class、family_size
     """
-    df = _ensure_df(df).copy()
+    df = df.copy()  # 這裡直接用 df，不需要 tmp
 
-    df["family_size"] = tmp["SibSp"] + tmp["Parch"] + 1
+    df["family_size"] = df["SibSp"] + df["Parch"] + 1
 
     out = (
         df.groupby(["family_size", "Pclass"])
@@ -96,12 +98,13 @@ def family_groups(df: pd.DataFrame) -> pd.DataFrame:
     )
     return out
 
-def last_names(df: pd.DataFrame) -> pd.Series:
+
+def last_names(df=None) -> pd.Series:
     """
     get family name then return value_counts Series
     index=last_name, value=count
     """
-    df = _ensure_df(df).copy()
+    df = _ensure_df(df)
     
     last = df["Name"].str.split(",", n=1).str[0].str.strip()
     return last.value_counts()
@@ -132,12 +135,12 @@ def visualize_family_size(df: pd.DataFrame | None = None):
     g.columns = ["family_size", "n_passengers"]
     return px.bar(g, x="family_size", y="n_passengers", title="Passenger Count by Family Size")
 
-def determine_age_division(df: pd.DataFrame) -> pd.DataFrame:
+def determine_age_division(df=None) -> pd.DataFrame:
     """
     create a new column 'older_passenger' to mark passengers older than the median age.
     """
     df = _ensure_df(df).copy()
-    
+
     median_age = df["Age"].median()
     df["older_passenger"] = df["Age"] > median_age
     return df
